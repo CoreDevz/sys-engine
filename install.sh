@@ -124,6 +124,14 @@ if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
     echo -e "${GREEN}✓ systemd-resolved configured${NC}"
 fi
 
+# ── Configure Firewall ───────────────────────────
+if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
+    echo -e "${CYAN}Configuring UFW firewall...${NC}"
+    ufw allow 53/tcp >/dev/null 2>&1
+    ufw allow 53/udp >/dev/null 2>&1
+    echo -e "${GREEN}✓ Firewall configured (Port 53 allowed)${NC}"
+fi
+
 # ── Download binaries ────────────────────────────
 echo -e "${CYAN}Downloading FalconDNS binaries ($BINARY_SUFFIX)...${NC}"
 
