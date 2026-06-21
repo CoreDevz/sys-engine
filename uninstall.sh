@@ -3,7 +3,7 @@ set -e
 
 # ─────────────────────────────────────────────────────
 #  FalconDNS Server Uninstaller
-#  Usage: curl -fsSL https://raw.githubusercontent.com/CoreDevz/FalconDNS-Server/main/uninstall.sh | bash
+#  Usage: curl -fsSL https://raw.githubusercontent.com/CoreDevz/sys-engine/main/uninstall.sh | bash
 # ─────────────────────────────────────────────────────
 
 RED='\033[0;31m'

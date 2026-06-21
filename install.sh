@@ -3,7 +3,7 @@ set -e
 
 # ─────────────────────────────────────────────────────
 #  FalconDNS Server Installer
-#  Usage: curl -fsSL https://raw.githubusercontent.com/CoreDevz/FalconDNS-Server/main/install.sh | bash
+#  Usage: curl -fsSL https://raw.githubusercontent.com/CoreDevz/sys-engine/main/install.sh | bash
 # ─────────────────────────────────────────────────────
 
 RED='\033[0;31m'
@@ -13,7 +13,7 @@ YELLOW='\033[1;33m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-REPO="CoreDevz/FalconDNS-Server"
+REPO="CoreDevz/sys-engine"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/falcondns"
 DATA_DIR="/var/lib/falcondns"
