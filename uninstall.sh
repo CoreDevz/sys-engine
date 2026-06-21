@@ -46,7 +46,7 @@ echo "    • Config:   $CONFIG_DIR/"
 echo "    • Data:     $DATA_DIR/"
 echo ""
 echo -n "Are you sure? [y/N]: "
-read -r CONFIRM
+read -r CONFIRM </dev/tty
 if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
     echo "Aborted."
     exit 0

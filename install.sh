@@ -55,7 +55,7 @@ if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
     echo ""
     echo -e "${YELLOW}FalconDNS is already running.${NC}"
     echo -n "Do you want to upgrade? [y/N]: "
-    read -r UPGRADE
+    read -r UPGRADE </dev/tty
     if [ "$UPGRADE" != "y" ] && [ "$UPGRADE" != "Y" ]; then
         echo "Aborted."
         exit 0
@@ -70,7 +70,7 @@ echo ""
 if [ -f "$CONFIG_DIR/engine.json" ] && [ "$UPGRADING" = true ]; then
     echo -e "${GREEN}✓ Existing config found at $CONFIG_DIR/engine.json${NC}"
     echo -n "Keep existing config? [Y/n]: "
-    read -r KEEP_CONFIG
+    read -r KEEP_CONFIG </dev/tty
     if [ "$KEEP_CONFIG" = "n" ] || [ "$KEEP_CONFIG" = "N" ]; then
         RECONFIGURE=true
     fi
@@ -83,7 +83,7 @@ if [ "$RECONFIGURE" = true ]; then
     echo ""
 
     echo -n "  Domain (e.g., t.573357.xyz): "
-    read -r DOMAIN
+    read -r DOMAIN </dev/tty
     if [ -z "$DOMAIN" ]; then
         echo -e "${RED}Domain is required.${NC}"
         exit 1
@@ -97,13 +97,13 @@ if [ "$RECONFIGURE" = true ]; then
 
     if [ -n "$SERVER_IP" ]; then
         echo -e "  Server IP [${GREEN}${SERVER_IP}${NC}]: \c"
-        read -r INPUT_IP
+        read -r INPUT_IP </dev/tty
         if [ -n "$INPUT_IP" ]; then
             SERVER_IP="$INPUT_IP"
         fi
     else
         echo -n "  Server IP: "
-        read -r SERVER_IP
+        read -r SERVER_IP </dev/tty
         if [ -z "$SERVER_IP" ]; then
             echo -e "${RED}Server IP is required.${NC}"
             exit 1
