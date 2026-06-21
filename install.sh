@@ -113,23 +113,44 @@ if [ "$RECONFIGURE" = true ]; then
     echo ""
 fi
 
-# ── Download binary ──────────────────────────────
-echo -e "${CYAN}Downloading FalconDNS binary ($BINARY_SUFFIX)...${NC}"
+# ── Fix systemd-resolved port 53 ─────────────────
+if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
+    echo -e "${CYAN}Fixing systemd-resolved port 53 conflict...${NC}"
+    sed -i 's/#DNSStubListener=yes/DNSStubListener=no/' /etc/systemd/resolved.conf 2>/dev/null || true
+    sed -i 's/DNSStubListener=yes/DNSStubListener=no/' /etc/systemd/resolved.conf 2>/dev/null || true
+    systemctl restart systemd-resolved
+    rm -f /etc/resolv.conf
+    ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
+    echo -e "${GREEN}✓ systemd-resolved configured${NC}"
+fi
+
+# ── Download binaries ────────────────────────────
+echo -e "${CYAN}Downloading FalconDNS binaries ($BINARY_SUFFIX)...${NC}"
 
 DOWNLOAD_URL="https://github.com/$REPO/releases/latest/download/${BINARY_NAME}-${BINARY_SUFFIX}"
 FALLBACK_URL="https://raw.githubusercontent.com/$REPO/main/bin/${BINARY_NAME}-${BINARY_SUFFIX}"
+CLI_FALLBACK_URL="https://raw.githubusercontent.com/$REPO/main/bin/falcondns-${BINARY_SUFFIX}"
 
 if ! curl -fsSL -o "/tmp/$BINARY_NAME" "$DOWNLOAD_URL" 2>/dev/null; then
-    echo -e "${YELLOW}Release not found, trying fallback...${NC}"
     if ! curl -fsSL -o "/tmp/$BINARY_NAME" "$FALLBACK_URL" 2>/dev/null; then
-        echo -e "${RED}✗ Failed to download binary. Check your internet connection.${NC}"
+        echo -e "${RED}✗ Failed to download engine binary.${NC}"
         exit 1
     fi
 fi
 
+if ! curl -fsSL -o "/tmp/falcondns" "$CLI_FALLBACK_URL" 2>/dev/null; then
+    echo -e "${YELLOW}✗ Failed to download CLI binary. Admin commands may not work.${NC}"
+fi
+
 chmod +x "/tmp/$BINARY_NAME"
 mv "/tmp/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
-echo -e "${GREEN}✓ Binary installed at $INSTALL_DIR/$BINARY_NAME${NC}"
+
+if [ -f "/tmp/falcondns" ]; then
+    chmod +x "/tmp/falcondns"
+    mv "/tmp/falcondns" "$INSTALL_DIR/falcondns"
+fi
+
+echo -e "${GREEN}✓ Binaries installed at $INSTALL_DIR${NC}"
 
 # ── Create directories ───────────────────────────
 mkdir -p "$CONFIG_DIR"
