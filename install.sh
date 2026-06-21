@@ -89,10 +89,10 @@ if [ "$RECONFIGURE" = true ]; then
         exit 1
     fi
 
-    # Auto-detect server IP
-    SERVER_IP=$(curl -s --max-time 5 https://icanhazip.com 2>/dev/null | tr -d '[:space:]')
+    # Auto-detect server IP (Force IPv4)
+    SERVER_IP=$(curl -4 -s --max-time 5 https://icanhazip.com 2>/dev/null | tr -d '[:space:]')
     if [ -z "$SERVER_IP" ]; then
-        SERVER_IP=$(curl -s --max-time 5 http://whatismyip.akamai.com 2>/dev/null | tr -d '[:space:]')
+        SERVER_IP=$(curl -4 -s --max-time 5 http://whatismyip.akamai.com 2>/dev/null | tr -d '[:space:]')
     fi
 
     if [ -n "$SERVER_IP" ]; then
