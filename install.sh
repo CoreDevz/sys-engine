@@ -132,6 +132,33 @@ if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
     echo -e "${GREEN}✓ Firewall configured (Port 53 allowed)${NC}"
 fi
 
+# ── Optimize Network Stack ───────────────────────
+echo -e "${CYAN}Optimizing Linux network stack for VPN...${NC}"
+# Load BBR kernel module
+if ! lsmod | grep -q tcp_bbr; then
+    modprobe tcp_bbr 2>/dev/null || true
+    echo "tcp_bbr" > /etc/modules-load.d/bbr.conf 2>/dev/null || true
+fi
+
+cat > /etc/sysctl.d/99-falcondns.conf <<EOF
+# Enable BBR congestion control
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+
+# Expand maximum network socket buffers
+net.core.rmem_max=16777216
+net.core.wmem_max=16777216
+net.ipv4.tcp_rmem=4096 87380 16777216
+net.ipv4.tcp_wmem=4096 65536 16777216
+
+# Faster cleanup of dropped VPN connections
+net.ipv4.tcp_keepalive_time=120
+net.ipv4.tcp_keepalive_intvl=30
+net.ipv4.tcp_keepalive_probes=3
+EOF
+sysctl --system --quiet 2>/dev/null || true
+echo -e "${GREEN}✓ Network stack optimized (BBR enabled)${NC}"
+
 # ── Download binaries ────────────────────────────
 echo -e "${CYAN}Downloading FalconDNS binaries ($BINARY_SUFFIX)...${NC}"
 
