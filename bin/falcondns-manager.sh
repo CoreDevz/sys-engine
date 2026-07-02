@@ -102,15 +102,7 @@ clear_screen() {
 
 print_header() {
     echo ""
-    echo -e "  ${BCYN}${B}╔══════════════════════════════════════════════════════╗${R}"
-    echo -e "  ${BCYN}${B}║${R}  ${BWHT}${B}  ███████╗ █████╗ ██╗      ██████╗ ██████╗ ███╗  ${R} ${BCYN}${B}║${R}"
-    echo -e "  ${BCYN}${B}║${R}  ${BWHT}${B}  ██╔════╝██╔══██╗██║     ██╔════╝██╔═══██╗████╗ ${R} ${BCYN}${B}║${R}"
-    echo -e "  ${BCYN}${B}║${R}  ${BCYN}${B}  █████╗ ███████║██║     ██║     ██║   ██║██╔██╗${R} ${BCYN}${B}║${R}"
-    echo -e "  ${BCYN}${B}║${R}  ${BCYN}${B}  ██╔══╝ ██╔══██║██║     ██║     ██║   ██║██║╚█╗${R} ${BCYN}${B}║${R}"
-    echo -e "  ${BCYN}${B}║${R}  ${BWHT}${B}  ██║    ██║  ██║███████╗╚██████╗╚██████╔╝██║ █║${R} ${BCYN}${B}║${R}"
-    echo -e "  ${BCYN}${B}║${R}  ${DIM}  ╚═╝    ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝ ╚╝${R} ${BCYN}${B}║${R}"
-    echo -e "  ${BCYN}${B}║${R}           ${DIM}DNS Tunneling VPN Engine — Manager${R}           ${BCYN}${B}║${R}"
-    echo -e "  ${BCYN}${B}╚══════════════════════════════════════════════════════╝${R}"
+    echo -e "  ${BG_CYN}${BLK}${B}  FALCONDNS MANAGER  ${R} ${DIM}— DNS Tunneling VPN Engine${R}"
     echo ""
 }
 
@@ -196,11 +188,15 @@ create_user() {
         echo -e "  ${DIM}Generated key${R}"
     fi
 
-    echo -ne "  ${CYN}Expiry Date ${DIM}(YYYY-MM-DD, blank=never)${R}: "
-    read -r expiry
+    echo -ne "  ${CYN}Duration in days ${DIM}(blank=never)${R}: "
+    read -r days
+    local expiry="Never"
     local expiry_sql="NULL"
-    if [[ -n "$expiry" ]]; then
+    if [[ -n "$days" && "$days" =~ ^[0-9]+$ ]]; then
+        expiry=$(date -d "+$days days" "+%Y-%m-%d" 2>/dev/null)
         expiry_sql="'$expiry'"
+    elif [[ -n "$days" ]]; then
+        echo -e "  ${BRED}Invalid days, setting to Never.${R}"
     fi
 
     echo -ne "  ${CYN}Bandwidth Limit ${DIM}(GB, default=10)${R}: "
@@ -240,8 +236,20 @@ create_user() {
     echo -e "  ${B}Bandwidth${R}       : ${WHT}${bw_gb} GB${R}"
     echo -e "  ${B}HWID Lock${R}       : ${WHT}$(if [[ "$hwid_choice" =~ ^[Yy] ]]; then echo "Enabled"; else echo "${BYEL}Disabled${R}"; fi)${R}"
     echo ""
+    local domain="N/A"
+    local vps_ip="N/A"
+    if [[ -f "$CONFIG_PATH" ]]; then
+        domain=$(grep -oP '"domain"\s*:\s*"\K[^"]+' "$CONFIG_PATH" 2>/dev/null || echo "N/A")
+        vps_ip=$(grep -oP '"server_ip"\s*:\s*"\K[^"]+' "$CONFIG_PATH" 2>/dev/null || echo "N/A")
+    fi
+    local json="{\"d\":\"$domain\",\"i\":\"$vps_ip\",\"s\":\"$sub_id\",\"k\":\"$user_key\"}"
+    local b64=$(echo -n "$json" | base64 | tr -d '\n')
+
     echo -e "  ${DIM}Share these credentials with your client:${R}"
     echo -e "  ${BG_DK} Sub ID: ${BCYN}${B}$sub_id${R}${BG_DK}  Key: ${BYEL}${B}$user_key${R}${BG_DK} ${R}"
+    echo ""
+    echo -e "  ${B}Quick Connect Code:${R}"
+    echo -e "  ${BCYN}falcon://${b64}${R}"
     echo ""
 
     press_enter
@@ -252,7 +260,7 @@ list_users() {
     echo -e "\n  ${BCYN}${B}═══ ALL USERS ═══${R}\n"
 
     local count
-    count=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users;" 2>/dev/null)
+    count=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users;")
 
     if [[ "$count" -eq 0 ]]; then
         echo -e "  ${DIM}No users found. Create one from the main menu.${R}"

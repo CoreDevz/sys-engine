@@ -78,6 +78,11 @@ if [ -f "$BINARY_PATH" ]; then
     echo -e "${GREEN}✓ Binary removed${NC}"
 fi
 
+if [ -f "/usr/local/bin/falcondns" ]; then
+    rm -f "/usr/local/bin/falcondns"
+    echo -e "${GREEN}✓ CLI / Manager removed${NC}"
+fi
+
 # ── Remove config ────────────────────────────────
 if [ -d "$CONFIG_DIR" ]; then
     rm -rf "$CONFIG_DIR"
