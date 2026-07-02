@@ -145,6 +145,52 @@ print_menu() {
 }
 
 # ─── Functions ─────────────────────────────────────────────────────────────────
+select_user() {
+    local prompt_text="$1"
+    
+    local count
+    count=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users;")
+    if [[ "$count" -eq 0 ]]; then
+        echo -e "  ${DIM}No users found.${R}"
+        return 1
+    fi
+
+    # Declare global array to hold sub_ids
+    declare -g -a user_list_sids=()
+    
+    printf "  ${B}${BCYN}%-4s %-12s %-8s %-12s %-14s${R}\n" "NUM" "NAME" "STATUS" "EXPIRY" "BANDWIDTH"
+    echo -e "  ${DIM}────────────────────────────────────────────────────────${R}"
+
+    local idx=1
+    while IFS='|' read -r sid uname status expiry bw_used bw_allowed; do
+        user_list_sids[$idx]="$sid"
+        
+        local status_color="${BGRN}"
+        if [[ "$status" == "disabled" ]] || [[ "$status" == "expired" ]]; then
+            status_color="${BRED}"
+        fi
+
+        local bw_str
+        bw_str="$(format_bytes "$bw_used")/$(format_bytes "$bw_allowed")"
+
+        printf "  ${BWHT}%-4s${R} %-12s ${status_color}%-8s${R} %-12s %-14s\n" \
+            "$idx" "${uname:0:11}" "$status" "$expiry" "${bw_str:0:13}"
+            
+        idx=$((idx + 1))
+    done < <(sqlite3 -separator '|' "$DB_PATH" "SELECT sub_id, COALESCE(name,'—'), status, COALESCE(expiry_date,'Never'), bandwidth_used, bandwidth_allowed FROM users ORDER BY created_at DESC;")
+    
+    echo ""
+    echo -ne "  ${B}${prompt_text}${R} ${DIM}(Enter number, or 0 to cancel)${R}: "
+    read -r selection
+    
+    if [[ -z "$selection" || ! "$selection" =~ ^[0-9]+$ || "$selection" -eq 0 || "$selection" -ge "$idx" ]]; then
+        return 1
+    fi
+    
+    SELECTED_SUB_ID="${user_list_sids[$selection]}"
+    return 0
+}
+
 
 create_user() {
     clear_screen
@@ -296,18 +342,10 @@ delete_user() {
     clear_screen
     echo -e "\n  ${BCYN}${B}✦ DELETE USER ✦${R}\n"
 
-    echo -ne "  ${B}Enter Sub ID (UUID) to delete${R}: "
-    read -r sub_id
-
-    if [[ -z "$sub_id" ]]; then return; fi
-
-    local exists
-    exists=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users WHERE sub_id='$sub_id';")
-    if [[ "$exists" -eq 0 ]]; then
-        echo -e "  ${BRED}✗ User '$sub_id' not found in database.${R}"
-        press_enter
+    if ! select_user "Select User to Delete"; then
         return
     fi
+    local sub_id="$SELECTED_SUB_ID"
 
     local name
     name=$(sqlite3 "$DB_PATH" "SELECT COALESCE(name, sub_id) FROM users WHERE sub_id='$sub_id';")
@@ -329,21 +367,15 @@ toggle_hwid() {
     clear_screen
     echo -e "\n  ${BCYN}${B}✦ HWID LOCK SETTINGS ✦${R}\n"
 
-    echo -ne "  ${B}Enter Sub ID${R}: "
-    read -r sub_id
-    if [[ -z "$sub_id" ]]; then return; fi
+    if ! select_user "Select User for HWID Settings"; then
+        return
+    fi
+    local sub_id="$SELECTED_SUB_ID"
 
     local hwid
     hwid=$(sqlite3 "$DB_PATH" "SELECT hardware_id FROM users WHERE sub_id='$sub_id';")
 
     if [[ -z "$hwid" ]]; then
-        local exists
-        exists=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users WHERE sub_id='$sub_id';")
-        if [[ "$exists" -eq 0 ]]; then
-            echo -e "  ${BRED}✗ User not found.${R}"
-            press_enter
-            return
-        fi
         echo -e "  ${DIM}Status:${R} ${BGRN}Enabled${R} ${DIM}(Will lock to the next device that connects)${R}"
     elif [[ "$hwid" == "DISABLED" ]]; then
         echo -e "  ${DIM}Status:${R} ${BYEL}Disabled${R} ${DIM}(Any device can use this account)${R}"
@@ -376,17 +408,10 @@ set_expiry() {
     clear_screen
     echo -e "\n  ${BCYN}${B}✦ SET EXPIRY ✦${R}\n"
 
-    echo -ne "  ${B}Enter Sub ID${R}: "
-    read -r sub_id
-    if [[ -z "$sub_id" ]]; then return; fi
-
-    local exists
-    exists=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users WHERE sub_id='$sub_id';")
-    if [[ "$exists" -eq 0 ]]; then
-        echo -e "  ${BRED}✗ User not found.${R}"
-        press_enter
+    if ! select_user "Select User to Update Expiry"; then
         return
     fi
+    local sub_id="$SELECTED_SUB_ID"
 
     local current_expiry
     current_expiry=$(sqlite3 "$DB_PATH" "SELECT COALESCE(expiry_date, 'Never') FROM users WHERE sub_id='$sub_id';")
@@ -413,27 +438,23 @@ reset_bandwidth() {
     clear_screen
     echo -e "\n  ${BCYN}${B}✦ RESET BANDWIDTH ✦${R}\n"
 
-    echo -ne "  ${B}Enter Sub ID${R} ${DIM}('all' for everyone)${R}: "
-    read -r sub_id
-    if [[ -z "$sub_id" ]]; then return; fi
-
-    if [[ "$sub_id" == "all" ]]; then
-        echo -ne "  ${BRED}Reset bandwidth for ALL users?${R} (y/N): "
-        read -r confirm
-        if [[ "$confirm" =~ ^[Yy] ]]; then
-            sqlite3 "$DB_PATH" "UPDATE users SET bandwidth_used = 0;"
-            echo -e "  ${BGRN}✔ Bandwidth reset globally.${R}"
-        fi
-    else
-        local exists
-        exists=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users WHERE sub_id='$sub_id';")
-        if [[ "$exists" -eq 0 ]]; then
-            echo -e "  ${BRED}✗ User not found.${R}"
-        else
-            sqlite3 "$DB_PATH" "UPDATE users SET bandwidth_used = 0 WHERE sub_id='$sub_id';"
-            echo -e "  ${BGRN}✔ Bandwidth reset for user.${R}"
-        fi
+    echo -ne "  ${B}Reset for ALL users?${R} (y/N): "
+    read -r confirm
+    if [[ "$confirm" =~ ^[Yy] ]]; then
+        sqlite3 "$DB_PATH" "UPDATE users SET bandwidth_used = 0;"
+        echo -e "  ${BGRN}✔ Bandwidth reset globally.${R}"
+        press_enter
+        return
     fi
+    
+    echo ""
+    if ! select_user "Select User to Reset Bandwidth"; then
+        return
+    fi
+    local sub_id="$SELECTED_SUB_ID"
+
+    sqlite3 "$DB_PATH" "UPDATE users SET bandwidth_used = 0 WHERE sub_id='$sub_id';"
+    echo -e "  ${BGRN}✔ Bandwidth reset for user.${R}"
     press_enter
 }
 
@@ -441,18 +462,13 @@ toggle_user_status() {
     clear_screen
     echo -e "\n  ${BCYN}${B}✦ ENABLE / DISABLE USER ✦${R}\n"
 
-    echo -ne "  ${B}Enter Sub ID${R}: "
-    read -r sub_id
-    if [[ -z "$sub_id" ]]; then return; fi
+    if ! select_user "Select User to Toggle Status"; then
+        return
+    fi
+    local sub_id="$SELECTED_SUB_ID"
 
     local current
     current=$(sqlite3 "$DB_PATH" "SELECT status FROM users WHERE sub_id='$sub_id';")
-
-    if [[ -z "$current" ]]; then
-        echo -e "  ${BRED}✗ User not found.${R}"
-        press_enter
-        return
-    fi
 
     echo -e "  ${DIM}Current Status:${R} ${BWHT}$current${R}"
     echo ""
