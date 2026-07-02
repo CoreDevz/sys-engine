@@ -164,7 +164,7 @@ echo -e "${CYAN}Downloading FalconDNS binaries ($BINARY_SUFFIX)...${NC}"
 
 DOWNLOAD_URL="https://github.com/$REPO/releases/latest/download/${BINARY_NAME}-${BINARY_SUFFIX}"
 FALLBACK_URL="https://raw.githubusercontent.com/$REPO/main/bin/${BINARY_NAME}-${BINARY_SUFFIX}"
-CLI_FALLBACK_URL="https://raw.githubusercontent.com/$REPO/main/bin/falcondns-${BINARY_SUFFIX}"
+MANAGER_URL="https://raw.githubusercontent.com/$REPO/main/bin/falcondns-manager.sh"
 
 if ! curl -fsSL -o "/tmp/$BINARY_NAME" "$DOWNLOAD_URL" 2>/dev/null; then
     if ! curl -fsSL -o "/tmp/$BINARY_NAME" "$FALLBACK_URL" 2>/dev/null; then
@@ -173,8 +173,9 @@ if ! curl -fsSL -o "/tmp/$BINARY_NAME" "$DOWNLOAD_URL" 2>/dev/null; then
     fi
 fi
 
-if ! curl -fsSL -o "/tmp/falcondns" "$CLI_FALLBACK_URL" 2>/dev/null; then
-    echo -e "${YELLOW}✗ Failed to download CLI binary. Admin commands may not work.${NC}"
+# Download TUI manager (bash script, arch-independent)
+if ! curl -fsSL -o "/tmp/falcondns" "$MANAGER_URL" 2>/dev/null; then
+    echo -e "${YELLOW}✗ TUI manager not available. You can still manage via sqlite3.${NC}"
 fi
 
 chmod +x "/tmp/$BINARY_NAME"
@@ -247,6 +248,7 @@ if systemctl is-active --quiet "$SERVICE_NAME"; then
     echo -e "  ${BOLD}IP:${NC}      $(grep -o '"server_ip"[^,]*' $CONFIG_DIR/engine.json 2>/dev/null | cut -d'"' -f4)"
     echo ""
     echo -e "  ${CYAN}Commands:${NC}"
+    echo -e "    ${BOLD}falcondns${NC}   — Open the interactive management panel"
     echo "    Status:    systemctl status falcondns"
     echo "    Logs:      journalctl -u falcondns -f"
     echo "    Restart:   systemctl restart falcondns"
